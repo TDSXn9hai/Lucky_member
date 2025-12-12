@@ -27,6 +27,15 @@ def load_and_draw(file_path):
     total_times = 0
     total_score = 0
 
+    # 查看有多少有效数据列
+    # 取表头行（第 1 行）
+    header = next(ws.iter_rows(min_row=1, max_row=1, values_only=True))
+    # 从第 2 列开始，找到最后一个非空日期列索引
+    date_cols_end = len(header) - 1          # 最后一列是“总分”，再往前一格就是最后一个日期
+    # 剔除尾部连续 None：
+    while date_cols_end > 1 and header[date_cols_end - 1] is None:
+        date_cols_end -= 1
+
     # 从第2行开始读取（跳过表头）
     for row in ws.iter_rows(min_row=2, values_only=False):
         name_cell = row[0]
@@ -42,20 +51,47 @@ def load_and_draw(file_path):
 
         # 计算参与次数（中间列，去掉首列名称和末列总分）
         times = 0
-        for cell in row[1:-1]:
+        for cell in row[1:date_cols_end-1]:
             v = cell.value
-            if v is not None and str(v).isdigit():
-                times += int(v)
+            if v is None:
+                continue
+            try:
+                times += int(float(str(v)))
+            except ValueError:
+                pass
+        # times = 0
+        # for cell in row[1:-2]:
+        #     v = cell.value
+        #     if v is not None and str(v).isdigit():
+        #         times += int(v)
+        
+        # times = 0
+        # for j, cell in enumerate(row[1:date_cols_end-1], start=1):
+        #     v = cell.value
+        #     print(f'  col{j} raw={v!r}', end='')
+        #     if v is None:
+        #         print(' → skip')
+        #         continue
+        #     try:
+        #         delta = int(float(str(v)))
+        #         times += delta
+        #         print(f' → add {delta}  times={times}')
+        #     except ValueError:
+        #         print(' → invalid')
+        # print(name, 'final times=', times)
 
-        # 读取总分（最后一列）
-        score_cell = row[-1]
+        # 读取总分（最后一有效列）
+        score_cell = row[date_cols_end-1]
+        print(date_cols_end, score_cell.value)
         score = 0
         if score_cell.value is not None:
             try:
-                score = int(score_cell.value)
+                score = int(float(str(score_cell.value)))
             except ValueError:
                 pass
 
+        print(name, times, score)
+        
         # 数据合法性检查
         if (times == 0 and score != 0) or (times != 0 and score == 0):
             messagebox.showerror(
@@ -85,8 +121,28 @@ def load_and_draw(file_path):
         prob = 0.5 * p_times + 0.5 * p_score
         lottery.extend([m['name']] * max(1, int(prob * 10000)))
 
+    #     print(f"{m['name']:<12}  "
+    #               f"次数={m['times']:>2}  "
+    #               f"分数={m['score']:>2}  "
+    #               f"概率={prob:6.2%}")
+        
+    # print()
+
+    # ---------- 公开所有成员数据 ----------
+    detail_lines = [f"{'姓名':<12}  {'次数':>3}  {'总分':>3}  {'概率':>7}"]
+    detail_lines.append("-" * 32)
+    for m in members:
+        prob = 0.5 * m['times'] / total_times + 0.5 * m['score'] / total_score
+        detail_lines.append(
+            f"{m['name']:<12}  {m['times']:>3}  {m['score']:>3}  {prob:>6.2%}"
+        )
+    detail = "\n".join(detail_lines)
+
+    # 抽奖并宣布结果
     lucky_one = random.choice(lottery)
-    messagebox.showinfo("抽奖结果", f"恭喜幸运成员：{lucky_one}")
+    final_text = f"{detail}\n\n恭喜幸运成员：{lucky_one}"
+
+    messagebox.showinfo("抽奖结果", final_text)
 
 def select_file():
     filetypes = [("Excel 文件", "*.xlsx *.xlsm")]
