@@ -27,14 +27,9 @@ def load_and_draw(file_path):
     total_times = 0
     total_score = 0
 
-    # 查看有多少有效数据列
-    # 取表头行（第 1 行）
+    # 精确找到“总分”列的索引，日期列范围就是第2列到总分列之前
     header = next(ws.iter_rows(min_row=1, max_row=1, values_only=True))
-    # 从第 2 列开始，找到最后一个非空日期列索引
-    date_cols_end = len(header) - 1          # 最后一列是“总分”，再往前一格就是最后一个日期
-    # 剔除尾部连续 None：
-    while date_cols_end > 1 and header[date_cols_end - 1] is None:
-        date_cols_end -= 1
+    total_score_col_idx = header.index('总分')
 
     # 从第2行开始读取（跳过表头）
     for row in ws.iter_rows(min_row=2, values_only=False):
@@ -51,7 +46,7 @@ def load_and_draw(file_path):
 
         # 计算参与次数（中间列，去掉首列名称和末列总分）
         times = 0
-        for cell in row[1:date_cols_end-1]:
+        for cell in row[1:total_score_col_idx]:
             v = cell.value
             if v is None:
                 continue
@@ -80,9 +75,9 @@ def load_and_draw(file_path):
         #         print(' → invalid')
         # print(name, 'final times=', times)
 
-        # 读取总分（最后一有效列）
-        score_cell = row[date_cols_end-1]
-        print(date_cols_end, score_cell.value)
+        # 读取总分
+        score_cell = row[total_score_col_idx]
+        # print(date_cols_end, score_cell.value)
         score = 0
         if score_cell.value is not None:
             try:
@@ -90,7 +85,7 @@ def load_and_draw(file_path):
             except ValueError:
                 pass
 
-        print(name, times, score)
+        # print(name, times, score)
         
         # 数据合法性检查
         if (times == 0 and score != 0) or (times != 0 and score == 0):
